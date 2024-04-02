@@ -1,0 +1,102 @@
+---
+title: "P8139_HW4_association_study"
+author: "Ruixi Li"
+date: "2024-03-28"
+output: html_document
+---
+
+```{r library, include=FALSE}
+library(genetics)
+library(tidyverse)
+```
+# Data preparation
+```{r data_pre, message=FALSE, warning=FALSE}
+# read in data
+fms = read.csv("FMS_data.csv")
+skimr::skim(fms)
+attach(fms)
+# The attach() function in R is used to modify the R search path by making the variables in a data frame available in the R environment as if they were variables in the global environment. This can simplify code when you're working with data frames because it allows you to refer to columns in the data frame directly by their names without having to use the data frame name each time.
+```
+
+# (1) Choose candidates genes
+
+```{r}
+NamesEsr1Snps = names(fms)[substr(names(fms),1,4)=="esr1"]
+NamesEsr1Snps
+# The genotype matrix can now be defined by selecting the columns of fms that
+# correspond to the esr1 SNP names:
+fmsEsr1 = fms[,is.element(names(fms),NamesEsr1Snps)]
+
+```
+Although I can go through all SNPs in this dataset to find susceptible loci, I just tailored the candidate gene list to show the process more efficiently. I found some evidence showing that Estrogen receptor 1 gene polymorphisms are associated with metabolic syndrome in postmenopausal women in China. So I think (https://doi.org/10.1186/s12902-018-0289-4) it's reasonable to use esr1 SNPs as my candidate genes.
+
+
+# (1) Choose candidates genes
+
+I am interested in determining whether there is an association between any of the SNPs within the esr1 gene and an indicator of Homeostatic model assessment(HOMA) in the FAMuSS study. HOMA is a method for assessing beta-cell function and insulin resistance (IR) from basal (fasting) glucose and insulin or C-peptide concentrations. I want to use HOMA as a measurement of metabolic syndrome. In Spanish population the threshold value of HOMA-IR drops from 3.46 using 90th percentile criteria to 2.05 taking into account of MetS components. So, I used two operationalization of HOMA with one as continuous and the other is cateforical(0="<=2.05", 1=">2.05").
+
+
+# (2) a/b : Association Analysis and multiple comparison
+
+## Binary trait: Chi-squared test/Fisher's Exact Test for association
+
+```{r bin}
+
+# We define our trait to be an indicator for whether HOMA > 2.05:
+Trait = as.numeric(HOMA>2.05)
+
+# We write a function to record the p-values from applying the χ2-test to
+# the 2 × 3 contingency tables corresponding to each SNP and this trait, some cells of the frequency table < 5, so I used fisher's exact test rather than chi-square test:
+newFunction_cate = function(Geno){
+    ObsTab = table(Trait,Geno)
+    return(fisher.test(ObsTab)$p.value)
+}
+
+# Apply this function to the columns of fmsEsr1:
+pvalues = apply(fmsEsr1,2,newFunction_cate)
+
+# adjust for multiple testing
+p.adj = p.adjust(pvalues, method="BH")
+
+```
+
+
+## Continuous Trait 
+
+```{r cont}
+newFunction_cont = function(Geno){
+    
+    return(aov(HOMA ~ Geno)$p.value)
+}
+
+# Apply this function to the columns of fmsEsr1:
+pvalues_cont = apply(fmsEsr1,2,newFunction_cont)
+
+# adjust for multiple testing
+p.adj_cont = p.adjust(pvalues, method="BH")
+```
+
+
+# (2) c: Investigate population stratification using Principal Component Analysis (PCA)
+
+```{r pop_stratification}
+
+# Examine population substructure using all 24 SNPs within the akt1 gene.
+NamesAkt1Snps = names(fms)[substr(names(fms),1,4)=="akt1"]
+NamesAkt1Snps
+
+# Convert the genotype data from factor variables to numeric variables using data.matrix()
+# Note that we additionally assign the missing data a number
+
+FMSgeno = fms[,is.element(names(fms),NamesAkt1Snps)]
+FMSgenoNum = data.matrix(FMSgeno)
+FMSgenoNum[is.na(FMSgenoNum)] = 4
+
+PC.FMS = prcomp(FMSgenoNum)
+plot(PC.FMS$"x"[,1],PC.FMS$"x"[,2],xlab="PC1",ylab="PC2")
+plot(PC.FMS$"x"[,1],PC.FMS$"x"[,3],xlab="PC1",ylab="PC3")
+plot(PC.FMS$"x"[,3],PC.FMS$"x"[,2],xlab="PC3",ylab="PC2")
+```
+
+# (2) d: Summary
+
