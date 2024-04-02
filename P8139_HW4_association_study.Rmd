@@ -2,21 +2,24 @@
 title: "P8139_HW4_association_study"
 author: "Ruixi Li"
 date: "2024-03-28"
-output: html_document
+output: word_document
 ---
 
 ```{r library, include=FALSE}
 library(genetics)
 library(tidyverse)
 ```
+
 # Data preparation
+
 ```{r data_pre, message=FALSE, warning=FALSE}
 # read in data
 fms = read.csv("FMS_data.csv")
-skimr::skim(fms)
+
 attach(fms)
 # The attach() function in R is used to modify the R search path by making the variables in a data frame available in the R environment as if they were variables in the global environment. This can simplify code when you're working with data frames because it allows you to refer to columns in the data frame directly by their names without having to use the data frame name each time.
 ```
+
 
 # (1) Choose candidates genes
 
@@ -31,20 +34,40 @@ fmsEsr1 = fms[,is.element(names(fms),NamesEsr1Snps)]
 Although I can go through all SNPs in this dataset to find susceptible loci, I just tailored the candidate gene list to show the process more efficiently. I found some evidence showing that Estrogen receptor 1 gene polymorphisms are associated with metabolic syndrome in postmenopausal women in China. So I think (https://doi.org/10.1186/s12902-018-0289-4) it's reasonable to use esr1 SNPs as my candidate genes.
 
 
-# (1) Choose candidates genes
+# (1) Choose two traits
 
 I am interested in determining whether there is an association between any of the SNPs within the esr1 gene and an indicator of Homeostatic model assessment(HOMA) in the FAMuSS study. HOMA is a method for assessing beta-cell function and insulin resistance (IR) from basal (fasting) glucose and insulin or C-peptide concentrations. I want to use HOMA as a measurement of metabolic syndrome. In Spanish population the threshold value of HOMA-IR drops from 3.46 using 90th percentile criteria to 2.05 taking into account of MetS components. So, I used two operationalization of HOMA with one as continuous and the other is cateforical(0="<=2.05", 1=">2.05").
 
+```{r traits}
+
+summary(HOMA)
+fms |> select(HOMA) |> ggplot (aes(x=HOMA))+ geom_histogram()
+
+fms_log = fms |> mutate(HOMA=scale(log(HOMA)))
+fms_log |> ggplot (aes(x=HOMA))+ geom_histogram()
+
+
+# We define our trait to be an indicator for whether HOMA > 2.05:
+Trait = as.numeric(HOMA>2.05)
+
+count = table(Trait)
+percentage = prop.table(count)
+cbind(count, percentage)
+
+```
+
+# EDA
+
+```{r EDA}
+# skimr::skim(fms) 
+# I used this function to look at the datatype, missing stutas, duplicate and general distribution of all variables, including  SNPs, outcomes and potential covariates. But to avoid too much output, I chose not to show it in word.
+```
 
 # (2) a/b : Association Analysis and multiple comparison
 
 ## Binary trait: Chi-squared test/Fisher's Exact Test for association
 
 ```{r bin}
-
-# We define our trait to be an indicator for whether HOMA > 2.05:
-Trait = as.numeric(HOMA>2.05)
-
 # We write a function to record the p-values from applying the χ2-test to
 # the 2 × 3 contingency tables corresponding to each SNP and this trait, some cells of the frequency table < 5, so I used fisher's exact test rather than chi-square test:
 newFunction_cate = function(Geno){
@@ -61,7 +84,7 @@ p.adj = p.adjust(pvalues, method="BH")
 ```
 
 
-## Continuous Trait 
+## Continuous trait: HOMA
 
 ```{r cont}
 newFunction_cont = function(Geno){
@@ -92,11 +115,12 @@ FMSgeno = fms[,is.element(names(fms),NamesAkt1Snps)]
 FMSgenoNum = data.matrix(FMSgeno)
 FMSgenoNum[is.na(FMSgenoNum)] = 4
 
-PC.FMS = prcomp(FMSgenoNum)
+PC.FMS = prcomp(FMSgenoNum,retx=TRUE, center=TRUE, scale=TRUE)
 plot(PC.FMS$"x"[,1],PC.FMS$"x"[,2],xlab="PC1",ylab="PC2")
 plot(PC.FMS$"x"[,1],PC.FMS$"x"[,3],xlab="PC1",ylab="PC3")
 plot(PC.FMS$"x"[,3],PC.FMS$"x"[,2],xlab="PC3",ylab="PC2")
 ```
 
 # (2) d: Summary
+
 
