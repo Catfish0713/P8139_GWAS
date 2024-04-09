@@ -77,26 +77,43 @@ newFunction_cate = function(Geno){
 
 # Apply this function to the columns of fmsEsr1:
 pvalues = apply(fmsEsr1,2,newFunction_cate)
-
+pvalues
 # adjust for multiple testing
 p.adj = p.adjust(pvalues, method="BH")
-
+p.adj
 ```
 
 
 ## Continuous trait: HOMA
 
 ```{r cont}
+# ANOVA
 newFunction_cont = function(Geno){
-    
-    return(aov(HOMA ~ Geno)$p.value)
+    anova_result <- aov(HOMA ~ Geno, data = fmsEsr1)
+    p_value <- summary(anova_result)[[1]]["Geno", "Pr(>F)"]
 }
 
 # Apply this function to the columns of fmsEsr1:
 pvalues_cont = apply(fmsEsr1,2,newFunction_cont)
-
+pvalues_cont
 # adjust for multiple testing
-p.adj_cont = p.adjust(pvalues, method="BH")
+p.adj_cont = p.adjust(pvalues_cont, method="BH")
+p.adj_cont
+
+#Linear Regression
+newFunction_cont = function(Geno){
+    lm_model <- lm(HOMA ~ as.factor(Geno), data = fmsEsr1)
+    p_value <- summary(lm_model)$coefficients[2, 4]  # Extracting the p-value for the Geno coefficient
+  return(p_value)
+}
+
+# Apply this function to the columns of fmsEsr1:
+pvalues_cont_lm = apply(fmsEsr1,2,newFunction_cont)
+pvalues_cont_lm
+# adjust for multiple testing
+p.adj_cont_lm = p.adjust(pvalues_cont_lm, method="BH")
+p.adj_cont_lm
+
 ```
 
 
